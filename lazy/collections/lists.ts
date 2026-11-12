@@ -1,4 +1,5 @@
-import { force, Lazy, memoize, sum } from "../base/utils.ts";
+import { sum } from "../base/operations.ts";
+import { force, Lazy, memoize } from "../base/utils.ts";
 
 export type List<T> = {
     head: Lazy<T>;
@@ -46,10 +47,9 @@ export const take = (n: Lazy<number>) => <T>(ls: Lazy<List<T>>): Lazy<List<T>> =
         const count = force(n);
         if (list === null || count <= 0) return null;
 
-        return ({ head: head(list), tail: take(() => count - 1)(tail(list)) });
+        return ({ head: head(list), tail: take(memoize(() => count - 1))(tail(list)) });
     };
 };
-
 
 export const zipWith = <T, R>(f: Lazy<(a: Lazy<T>) => (b: Lazy<T>) => Lazy<R>>) => {
     const fn = memoize(f);
@@ -66,10 +66,13 @@ export const zipWith = <T, R>(f: Lazy<(a: Lazy<T>) => (b: Lazy<T>) => Lazy<R>>) 
 };
 
 export const cons = <T>(a: Lazy<T>) => (b: Lazy<List<T>>): Lazy<List<T>> =>
-    () => ({ head: a, tail: b });
+    memoize(() => ({ head: a, tail: b }));
 
 
-const genNaturals = () => (x: Lazy<number>): Lazy<number> => () => force(x) + 1;
-export const Naturals = iterate(genNaturals)(() => 0);
+const genNaturals = (x: Lazy<number>): Lazy<number> => () => force(x) + 1;
+export const Naturals = iterate(memoize(() => genNaturals))(() => 0);
 
-export const Fibonacci = cons(() => 0)(cons(() => 1)(() => force(zipWith(() => sum)(Fibonacci)(tail(force(Fibonacci))))));
+
+export const Fibonacci = cons(() => 0)(cons(() => 1)(
+    memoize(() => force(zipWith(() => sum)(Fibonacci)(tail(force(Fibonacci)))))
+));
